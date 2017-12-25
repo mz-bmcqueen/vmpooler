@@ -16,6 +16,7 @@ gem 'sinatra', '>= 1.4'
 gem 'net-ldap', '<= 0.12.1' # keep compatibility w/ jruby & mri-1.9.3
 gem 'statsd-ruby', '>= 1.3.0', :require => 'statsd'
 gem 'connection_pool', '>= 2.2.1'
+gem 'virtualbox-ws'
 
 # Pin gems against Ruby version
 # Note we can't use platform restrictions easily so use
@@ -50,6 +51,8 @@ group :test do
   # Rubocop would be ok jruby but for now we only use it on
   # MRI or Windows platforms
   gem "rubocop", :platforms => [:ruby, :x64_mingw]
+  gem 'webmock', '>=3.1.1'
+  gem 'vcr', '>=4.0.0'
 end
 
 # Evaluate Gemfile.local if it exists
