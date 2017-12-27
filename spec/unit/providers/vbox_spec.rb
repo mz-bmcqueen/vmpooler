@@ -6,28 +6,10 @@ VCR.configure do |config|
   config.hook_into :webmock
 end
 
-RSpec::Matchers.define :create_vm_spec do |new_name,target_folder_name,datastore|
-  match { |actual|
-    # Should have the correct new name
-    actual[:name] == new_name &&
-    # Should be in the new folder
-    actual[:folder].name == target_folder_name &&
-    # Should be poweredOn after clone
-    actual[:spec].powerOn == true &&
-    # Should be on the correct datastore
-    actual[:spec][:location].datastore.name == datastore &&
-    # Should contain annotation data
-    actual[:spec][:config].annotation != '' &&
-    # Should contain VIC information
-    actual[:spec][:config].extraConfig[0][:key] == 'guestinfo.hostname' &&
-    actual[:spec][:config].extraConfig[0][:value] == new_name
-  }
-end
-
 describe 'Vmpooler::PoolManager::Provider::VirtualBox' do
   let(:logger) { MockLogger.new }
   let(:metrics) { Vmpooler::DummyStatsd.new }
-  let(:poolname) { 'pool1'}
+  let(:poolname) { '/MzGroup1'}
   let(:provider_options) { { 'param' => 'value' } }
   let(:datacenter_name) { 'MockDC' }
   let(:config) { YAML.load(<<-EOT
@@ -40,13 +22,13 @@ describe 'Vmpooler::PoolManager::Provider::VirtualBox' do
     server: "localhost"
     username: "vbox_user"
     password: "vbox_password"
-    port: 13013
+    port: 18083
     connection_pool_timeout: 1
     datacenter: MockDC
 :pools:
   - name: '#{poolname}'
     alias: [ 'mockpool' ]
-    template: 'Templates/pool1'
+    template: 'centos7'
     size: 5
     timeout: 10
     ready_ttl: 1440
@@ -61,7 +43,7 @@ EOT
 
   subject do
     VCR.use_cassette("wsdl") do
-      Vmpooler::PoolManager::Provider::VirtualBox.new(config, logger, metrics, 'vbox1', provider_options)
+      Vmpooler::PoolManager::Provider::VirtualBox.new(config, logger, metrics, 'virtualbox', provider_options)
     end
   end
 
@@ -70,8 +52,8 @@ EOT
   # end
 
   describe '#name' do
-    it 'should be vbox1' do
-      expect(subject.name).to eq('vbox1')
+    it 'should be virtualbox' do
+      expect(subject.name).to eq('virtualbox')
     end
   end
 
@@ -106,6 +88,31 @@ EOT
       end
     end
 
+  end
+
+  describe '#create_vm' do
+
+    it 'should return a hash' do
+      VCR.use_cassette("create_vm1") do
+        result = subject.create_vm('/MzGroup1', 'testvm1')
+
+        expect(result.is_a?(Hash)).to be true
+      end
+    end
+
+    it 'should have the new VM name' do
+      VCR.use_cassette("create_vm2") do
+        result = subject.create_vm('/MzGroup1', 'testvm2')
+
+        expect(result['name']).to eq('testvm2')
+      end
+    end
+
+    it 'should raise an error' do
+      VCR.use_cassette("create_vm_no_pool") do
+        expect{ subject.create_vm('missing_pool', 'nonesuch') }.to raise_error(/missing_pool does not exist/)
+      end
+    end
   end
 
 end

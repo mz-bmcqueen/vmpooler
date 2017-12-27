@@ -32,12 +32,12 @@ module Vmpooler
         def initialize(config, logger, metrics, name, options)
           super(config, logger, metrics, name, options)
 
-          VBox::WebService.configure do |config|
-            config.vboxweb_host = provider_config['server'] || '127.0.0.1'
-            config.vboxweb_port = provider_config['port'] || '18083'
-            config.vboxweb_user = provider_config['username']
-            config.vboxweb_pass = provider_config['password']
-            config.log_level = provider_config['VBOXWEB_LOGGING'] || 'ERROR'
+          VBox::WebService.configure do |vbconfig|
+            vbconfig.vboxweb_host = provider_config()['server'] || '127.0.0.1'
+            vbconfig.vboxweb_port = provider_config()['port'] || '18083'
+            vbconfig.vboxweb_user = provider_config()['username']
+            vbconfig.vboxweb_pass = provider_config()['password']
+            vbconfig.log_level = provider_config()['VBOXWEB_LOGGING'] || 'ERROR'
             # config.vboxweb_host = '127.0.0.1'
             # config.vboxweb_port = '18083'
             # config.log_level = 'ERROR'
@@ -66,6 +66,11 @@ module Vmpooler
           end
 
         end
+
+        # name of the provider class
+        # def name
+          # 'virtualbox'
+        # end
 
         #redo this using a connection from the pool
         #seems to be called like this: vsphere_connection_ok?(connection_pool_object[:connection])
@@ -175,7 +180,30 @@ module Vmpooler
         #   [Hashtable] of the VM as per get_vm
         #   Raises RuntimeError if the pool_name is not supported by the Provider
         def create_vm(_pool_name, _new_vmname)
-          raise("#{self.class.name} does not implement create_vm")
+
+          my_pool_config = pool_config(_pool_name)
+          raise("Pool #{_pool_name} does not exist for the provider #{name}") if my_pool_config.nil?
+
+          source_machine = virtual_box.find_machine(:nameOrId => my_pool_config['template'])
+          raise("Template #{_pool_name} does not exist for the provider #{name}") if source_machine.nil?
+
+          new_machine = virtual_box.create_machine(:name => _new_vmname, :os_type_id => 'Other', :groups => _pool_name)
+
+          progress = source_machine.clone_to(:target => new_machine, :mode => 2)
+
+          progress.wait_for_completion(:timeout => -1)
+          virtual_box.register_machine(:machine => new_machine)
+
+          # Start the VM
+          new_machine.launch_vm_process(:session => @web_session_mgr.get_session_object)
+          return { 
+              'name' => _new_vmname,
+              'hostname' => new_machine.name,
+              'template' => pool_config(_pool_name)['template'],
+              'poolname' => _pool_name,
+              'boottime' => Time.new,
+              'powerstate' => new_machine.state, 
+            }
         end
 
         # inputs
