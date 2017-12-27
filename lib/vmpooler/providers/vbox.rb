@@ -86,9 +86,9 @@ module Vmpooler
         #       'name' => [String] Name of VM
         def vms_in_pool(_pool_name)
 
-          return @virtual_box.get_machines.select do | machine |
+          return @virtual_box.get_machines_by_groups({ :groups => [_pool_name] }).select do | machine |
             begin
-              machine.name.start_with?(_pool_name)
+              machine.name
             rescue
               $logger.log('s', "[x] skipping bad vm [#{_pool_name}] '#{machine}'")
               next
@@ -105,7 +105,9 @@ module Vmpooler
         # returns
         #   [String] : Name of the host computer running the vm.  If this is not a Virtual Machine, it returns the vm_name
         def get_vm_host(_pool_name, _vm_name)
-          raise("#{self.class.name} does not implement get_vm_host")
+
+          #for v1 virtualbox support this is all local so the hostname will always be localhost
+          return 'localhost'
         end
 
         # inputs
@@ -115,7 +117,8 @@ module Vmpooler
         #   [String] : Name of the most appropriate host computer to run this VM.  Useful for load balancing VMs in a cluster
         #                If this is not a Virtual Machine, it returns the vm_name
         def find_least_used_compatible_host(_pool_name, _vm_name)
-          raise("#{self.class.name} does not implement find_least_used_compatible_host")
+          #for v1 virtualbox support this is all local so the hostname will always be localhost
+          return 'localhost'
         end
 
         # inputs
@@ -125,6 +128,8 @@ module Vmpooler
         # returns
         #   [Boolean] : true on success or false on failure
         def migrate_vm_to_host(_pool_name, _vm_name, _dest_host_name)
+
+          #v1 virtualbox support is all localhost so this is an exception
           raise("#{self.class.name} does not implement migrate_vm_to_host")
         end
 
@@ -142,7 +147,25 @@ module Vmpooler
         #    [String] powerstate : Current power state of a VM.  Valid values (as per vCenter API)
         #                            - 'PoweredOn','PoweredOff'
         def get_vm(_pool_name, _vm_name)
-          raise("#{self.class.name} does not implement get_vm")
+          # raise("#{self.class.name} does not implement get_vm")
+
+          return @virtual_box.get_machines_by_groups({ :groups => [_pool_name] }).select do | machine |
+            begin
+              machine.name
+            rescue
+              $logger.log('s', "[x] skipping bad vm [#{_pool_name}] '#{machine}'")
+              next
+            end
+          end.map do | machine |
+            { 
+              'name' => machine.name,
+              'hostname' => 'localhost',
+              'template' => _pool_name,
+              'poolname' => _pool_name,
+              'boottime' => Time.new,
+              'powerstate' => machine.state, 
+            }
+          end.first
         end
 
         # inputs

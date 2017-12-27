@@ -79,19 +79,33 @@ EOT
 
     context 'Given a pool folder with many VMs' do
       let(:expected_vm_list) {[
-        { 'name' => 'vm1'},
-        { 'name' => 'vm2'},
-        { 'name' => 'vm3'}
+        {'name'=>'mz_logstash_ls5_1505846658855_51277'}
       ]}
 
       it 'should list all VMs in the VM folder for the pool' do
 
         VCR.use_cassette("vms") do
-          result = subject.vms_in_pool('mz')
+          result = subject.vms_in_pool('/MzGroup1')
           expect(result).to eq(expected_vm_list)
         end
 
       end
     end
   end
+
+  describe '#get_vm_host' do
+
+    context 'when VM exists and is running on a host' do
+
+      hostname = 'mz_logstash_ls5_1505846658855_51277'
+      it 'should return the hostname' do
+        VCR.use_cassette("get_vm") do
+          result = subject.get_vm('/MzGroup1', hostname)
+          expect(result['name']).to eq(hostname)
+        end
+      end
+    end
+
+  end
+
 end
