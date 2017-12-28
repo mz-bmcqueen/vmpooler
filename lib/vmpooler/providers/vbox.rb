@@ -189,13 +189,19 @@ module Vmpooler
 
           new_machine = virtual_box.create_machine(:name => _new_vmname, :os_type_id => 'Other', :groups => _pool_name)
 
-          progress = source_machine.clone_to(:target => new_machine, :mode => 2)
+          clone_progress = source_machine.clone_to(:target => new_machine, :mode => 2)
 
-          progress.wait_for_completion(:timeout => -1)
+          clone_progress.wait_for_completion(:timeout => -1)
           virtual_box.register_machine(:machine => new_machine)
 
           # Start the VM
-          new_machine.launch_vm_process(:session => @web_session_mgr.get_session_object)
+          sess = @web_session_mgr.get_session_object
+          launch_progress = new_machine.launch_vm_process(:session => sess)
+
+          launch_progress.wait_for_completion(:timeout => -1)
+
+          sess.unlock_machine()
+
           return { 
               'name' => _new_vmname,
               'hostname' => new_machine.name,
@@ -249,7 +255,29 @@ module Vmpooler
         # returns
         #   [Boolean] : true if success, false on error. Should returns true if the VM is missing
         def destroy_vm(_pool_name, _vm_name)
-          raise("#{self.class.name} does not implement destroy_vm")
+
+          machine = virtual_box.find_machine(:nameOrId => _vm_name)
+          return true if machine.nil?
+          
+          sess = @web_session_mgr.get_session_object
+          begin
+            machine.lock_machine(:session => sess, :lockType => 'VM')
+            progress = sess.console.power_down()
+            progress.wait_for_completion(:timeout => -1)
+          rescue Exception => e
+            $logger.log('s', "[x] can't destroy vm: can't get lock [#{_pool_name}] '#{machine}'. #{e.message}")
+            return false
+          end
+
+          begin
+            machine.unregister(:cleanupMode => 'Full')
+          rescue Exception => e
+            $logger.log('s', "[x] can't unregister vm: can't get lock [#{_pool_name}] '#{machine}'. #{e.message}")
+            return false
+          end
+
+          return true
+
         end
 
         # inputs

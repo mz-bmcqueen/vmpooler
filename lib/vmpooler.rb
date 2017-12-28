@@ -13,10 +13,6 @@ module Vmpooler
   require 'set'
   require 'virtualbox-ws'
 
-  # p "QQQQQQ"
-  # p VBox.constants
-  # p "QQQQQQ"
-
   %w[api graphite logger pool_manager statsd dummy_statsd generic_connection_pool providers].each do |lib|
     begin
       require "vmpooler/#{lib}"

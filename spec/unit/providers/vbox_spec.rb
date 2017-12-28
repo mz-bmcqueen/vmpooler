@@ -115,4 +115,16 @@ EOT
     end
   end
 
+  describe '#destroy_vm' do
+
+      it 'should delete VM by name' do
+      VCR.use_cassette("destroy_vm") do
+        result = subject.destroy_vm('', 'centos7 Clone')
+
+        expect(result).to eq(false)
+      end
+
+    end
+
+  end
 end
